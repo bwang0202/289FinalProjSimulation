@@ -33,6 +33,7 @@ class Counter:
     def plot(self):
         l = len(self.W_counts)
         plt.plot(range(l), self.W_counts, 'r--', range(l), self.M_counts, 'b--')
+        plt.grid()
         plt.show()
 
     def update(self, plus_w):
@@ -47,8 +48,8 @@ class Counter:
         # count number of nodes every unit time
         while True:
             yield env.timeout(UNIT_TIME)
-            self.W_counts.append(self.W)
-            self.M_counts.append(self.M)
+            self.W_counts.append(self.W/NODE_COUNT)
+            self.M_counts.append(self.M/NODE_COUNT)
 
 
 ## Individual node ##
