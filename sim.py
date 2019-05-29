@@ -60,10 +60,12 @@ def node(env, counter, node_type):
             if random.random() < P:
                 # W --> M
                 counter.update(False)
+                node_type = NODE_M
         if node_type == NODE_M:
             if random.random() < Q:
                 # M --> W
                 counter.update(True)
+                node_type = NODE_W
 
 
 
