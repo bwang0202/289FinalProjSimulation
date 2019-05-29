@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 UNIT_TIME = 1
 NODE_W = 1
 NODE_M = 2
+RUNTIME = 200
 
 # K and N
 NODE_COUNT = 10000
@@ -58,12 +59,12 @@ def node(env, counter, node_type):
     while True:
         yield env.timeout(UNIT_TIME)
         if node_type == NODE_W:
-            if random.random() < P:
+            if random.uniform(0, 1) <= P:
                 # W --> M
                 counter.update(False)
                 node_type = NODE_M
-        if node_type == NODE_M:
-            if random.random() < Q:
+        elif node_type == NODE_M:
+            if random.uniform(0, 1) <= Q:
                 # M --> W
                 counter.update(True)
                 node_type = NODE_W
@@ -83,6 +84,6 @@ for i in range(NODE_COUNT):
     else:
         my_counter.increment_M()
         env.process(node(env, my_counter, NODE_M))
-env.run(until=1000)
+env.run(until=RUNTIME)
 
 my_counter.plot()
