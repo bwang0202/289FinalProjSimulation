@@ -1,73 +1,130 @@
 import simpy
 import random
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Simpy Params
 UNIT_TIME = 1
-NODE_W = 1
-NODE_M = 2
-RUNTIME = 200
+WK = 1
+MN = 2
+BM = 3
+BW = 4
+SW = 5
+FW = 6
+MAX_TYPE = 6
+
+RUNTIME = 50
 
 # K and N
 NODE_COUNT = 10000
-EDGE_COUNT = 20000
+EDGE_COUNT = 80000
 
 # Adjustable Params
 START_W = 0.5
-P = 0.1
-Q = 0.5
+R = 0.8
+M = 0.1
+P = 0.8
+Q = 0.2
+N = 0.7
+X = 0.1
+Y = 0.8
+T = 0.3
+V = 0.3
+
+assert(P + Q <= 1)
+assert(X + Y <= 1)
+
+class Node:
+    def __init__(self, idx, tp):
+        self.idx = idx
+        self.type = tp
+
+    def set_type(self, tp):
+        self.type = tp
+    def get_type(self):
+        return self.type
+
+    def evolve(self, env, network):
+        while True:
+            yield env.timeout(UNIT_TIME)
+            # Rules of node changing goes here
+
+
+class Edge:
+    def __init__(self, a, b):
+        self.idx_a = a
+        self.idx_b = b
+
+    def evolve(self, env, network):
+        while True:
+            yield env.timeout(UNIT_TIME)
+            # Rules of edge changing goes here
+
+
+class Network:
+    def __init__(self, K, N):
+        self.K = K
+        self.N = N
+        self.adj_matrix = np.zeros((N, N))
+        self.nodes = []
+
+    def get_node_type(self, idx):
+        return self.nodes[idx].get_type()
+
+    def set_node_type(self, idx, tp):
+        self.nodes[idx].set_type(tp)
+
+    def output_node_counts(self):
+        result = np.zeros(MAX_TYPE)
+        for i in range(self.N):
+            result[self.nodes[i].get_type() - 1] += 1
+        return result
+
+    def init_env(self, env):
+        # Assign node types, only start with WorKers/MaNagers
+        for i in range(self.N):
+            if random.random() < START_W:
+                self.nodes.append(Node(i, WK))
+            else:
+                self.nodes.append(Node(i, MN))
+            env.process(self.nodes[-1].evolve(env, self))
+
+        # Random ER Graph
+        edge_count = 0
+        p = 2 * self.K / (self.N * (self.N - 1))
+        for i in range(self.N):
+            for j in range(i + 1, self.N):
+                if random.random() <= p:
+                    # link them!
+                    edge_count += 1
+                    self.adj_matrix[i,j] = 1
+                    self.adj_matrix[j,i] = 1
+                    env.process(Edge(i, j).evolve(env, self))
+        return edge_count
 
 # Global Statistics
 class Counter:
     def __init__(self):
-        self.W_counts = []
-        self.M_counts = []
-        self.W = 0
-        self.M = 0
-
-    def increment_W(self):
-        self.W += 1
-
-    def increment_M(self):
-        self.M += 1
+        self.records = []
 
     def plot(self):
-        l = len(self.W_counts)
-        plt.plot(range(l), self.W_counts, 'r--', range(l), self.M_counts, 'b--')
+        data = np.array(self.records)
+        colors = ['r--', 'b--', 'c--', 'y--', 'k--', 'm--']
+        typestr = ['Worker', 'Manager', 'Busy Manager', 'Busy Worker', 'Success Worker', 'Failed Worker']
+
+        for i in range(MAX_TYPE):
+            #plot with legend
+            plt.plot(data[:,i], colors[i], label=typestr[i])
+
+        plt.legend()
         plt.grid()
         plt.show()
 
-    def update(self, plus_w):
-        if plus_w:
-            self.W += 1
-            self.M -= 1
-        else:
-            self.W -= 1
-            self.M += 1
-
-    def count(self, env):
+    def count(self, env, network):
         # count number of nodes every unit time
         while True:
             yield env.timeout(UNIT_TIME)
-            self.W_counts.append(self.W/NODE_COUNT)
-            self.M_counts.append(self.M/NODE_COUNT)
-
-
-## Individual node ##
-
-def node(env, counter, node_type):
-    while True:
-        yield env.timeout(UNIT_TIME)
-        if node_type == NODE_W:
-            if random.uniform(0, 1) <= P:
-                # W --> M
-                counter.update(False)
-                node_type = NODE_M
-        elif node_type == NODE_M:
-            if random.uniform(0, 1) <= Q:
-                # M --> W
-                counter.update(True)
-                node_type = NODE_W
+            self.records.append(network.output_node_counts())
 
 
 
@@ -76,14 +133,10 @@ def node(env, counter, node_type):
 my_counter = Counter()
 
 env = simpy.Environment()
-env.process(my_counter.count(env))
-for i in range(NODE_COUNT):
-    if i < NODE_COUNT * START_W:
-        my_counter.increment_W()
-        env.process(node(env, my_counter, NODE_W))
-    else:
-        my_counter.increment_M()
-        env.process(node(env, my_counter, NODE_M))
+mynetwork = Network(NODE_COUNT, EDGE_COUNT)
+mynetwork.init_env(env)
+env.process(my_counter.count(env, mynetwork))
+
 env.run(until=RUNTIME)
 
 my_counter.plot()
