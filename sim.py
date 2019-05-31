@@ -18,7 +18,7 @@ SW = 5
 FW = 6
 MAX_TYPE = 6
 
-RUNTIME = 30
+RUNTIME = 200
 
 # K and N
 NODE_COUNT = 10000
@@ -52,28 +52,35 @@ class Node:
 
     def evolve(self, env, network):
         while True:
-            yield env.timeout(UNIT_TIME*2)
+            yield env.timeout(UNIT_TIME)
             prob = random.random()
             # Rules of node changing goes here
             if self.type == MN:
                 if prob < R:
-                    network.set_node_type(self.idx, BM)
+                    self.type = BM
+                    #network.set_node_type(self.idx, BM)
             elif self.type == BW:
                 if prob < P:
-                    network.set_node_type(self.idx, SW)
+                    self.type = SW
+                    #network.set_node_type(self.idx, SW)
                 elif prob < P + Q:
-                    network.set_node_type(self.idx, FW)
+                    self.type = FW
+                    #network.set_node_type(self.idx, FW)
             elif self.type == SW:
                 if prob < X:
-                    network.set_node_type(self.idx, MN)
+                    self.type = MN
+                    #network.set_node_type(self.idx, MN)
                 elif prob < X + Y:
-                    network.set_node_type(self.idx, WK)
+                    self.type = WK
+                    #network.set_node_type(self.idx, WK)
             elif self.type == FW:
                 if prob < N:
-                    network.set_node_type(self.idx, WK)
+                    self.type = WK
+                    #network.set_node_type(self.idx, WK)
             elif self.type == BM:
                 if prob < T:
-                    network.set_node_type(self.idx, WK)
+                    self.type = WK
+                    #network.set_node_type(self.idx, WK)
 
 
 class Edge:
@@ -83,7 +90,7 @@ class Edge:
 
     def evolve(self, env, network):
         while True:
-            yield env.timeout(UNIT_TIME*2)
+            yield env.timeout(UNIT_TIME)
             # Rules of edge changing goes here
             prob = random.random()
             a_type = network.get_node_type(self.idx_a)
@@ -122,28 +129,32 @@ class Network:
         self.N = N
         self.adj_matrix = np.zeros((N, N))
         self.nodes = []
-        self.count = [0, 0, 0, 0, 0, 0]
+        #self.count = [0, 0, 0, 0, 0, 0]
 
     def get_node_type(self, idx):
         return self.nodes[idx].get_type()
 
     def set_node_type(self, idx, tp):
-        self.count[self.nodes[idx].get_type() - 1] -= 1
-        self.count[tp - 1] += 1
+        #self.count[self.nodes[idx].get_type() - 1] -= 1
+        #self.count[tp - 1] += 1
         self.nodes[idx].set_type(tp)
 
     def output_node_counts(self):
-        return self.count
+        #return self.count
+        result = [0] * MAX_TYPE
+        for i in range(self.N):
+            result[self.nodes[i].get_type() - 1] += 1
+        return result
 
     def init_env(self, env):
         # Assign node types, only start with WorKers/MaNagers
         for i in range(self.N):
             if random.random() < START_W:
                 self.nodes.append(Node(i, WK))
-                self.count[WK - 1] += 1
+                #self.count[WK - 1] += 1
             else:
                 self.nodes.append(Node(i, MN))
-                self.count[MN - 1] += 1
+                #self.count[MN - 1] += 1
             env.process(self.nodes[-1].evolve(env, self))
 
         # Random ER Graph
@@ -165,6 +176,7 @@ class Counter:
         self.records = []
 
     def plot(self):
+        print(self.records)
         data = np.array(self.records)
         colors = ['r--', 'b--', 'c--', 'y--', 'k--', 'm--']
         typestr = ['Worker', 'Manager', 'Busy Manager', 'Busy Worker', 'Success Worker', 'Failed Worker']
