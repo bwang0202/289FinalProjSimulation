@@ -18,22 +18,22 @@ SW = 5
 FW = 6
 MAX_TYPE = 6
 
-RUNTIME = 50
+RUNTIME = 30
 
 # K and N
 NODE_COUNT = 10000
-EDGE_COUNT = 80000
+EDGE_COUNT = 40000
 
 # Adjustable Params
 START_W = 0.5
-R = 0.8
-M = 0.1
-P = 0.8
-Q = 0.2
-N = 0.7
-X = 0.1
-Y = 0.8
-T = 0.3
+R = 0.9
+M = 0.9
+P = 0.1
+Q = 0.1
+N = 0.1
+X = 0.6
+Y = 0.1
+T = 0.1
 V = 0.3
 W = 0.1
 
@@ -52,28 +52,28 @@ class Node:
 
     def evolve(self, env, network):
         while True:
-            yield env.timeout(UNIT_TIME)
+            yield env.timeout(UNIT_TIME*2)
             prob = random.random()
             # Rules of node changing goes here
             if self.type == MN:
                 if prob < R:
-                    self.type = BM
+                    network.set_node_type(self.idx, BM)
             elif self.type == BW:
                 if prob < P:
-                    self.type = SW
+                    network.set_node_type(self.idx, SW)
                 elif prob < P + Q:
-                    self.type = FW
+                    network.set_node_type(self.idx, FW)
             elif self.type == SW:
                 if prob < X:
-                    self.type = MN
+                    network.set_node_type(self.idx, MN)
                 elif prob < X + Y:
-                    self.type = WK
+                    network.set_node_type(self.idx, WK)
             elif self.type == FW:
                 if prob < N:
-                    self.type = WK
+                    network.set_node_type(self.idx, WK)
             elif self.type == BM:
                 if prob < T:
-                    self.type = WK
+                    network.set_node_type(self.idx, WK)
 
 
 class Edge:
@@ -83,7 +83,7 @@ class Edge:
 
     def evolve(self, env, network):
         while True:
-            yield env.timeout(UNIT_TIME)
+            yield env.timeout(UNIT_TIME*2)
             # Rules of edge changing goes here
             prob = random.random()
             a_type = network.get_node_type(self.idx_a)
@@ -122,26 +122,28 @@ class Network:
         self.N = N
         self.adj_matrix = np.zeros((N, N))
         self.nodes = []
+        self.count = [0, 0, 0, 0, 0, 0]
 
     def get_node_type(self, idx):
         return self.nodes[idx].get_type()
 
     def set_node_type(self, idx, tp):
+        self.count[self.nodes[idx].get_type() - 1] -= 1
+        self.count[tp - 1] += 1
         self.nodes[idx].set_type(tp)
 
     def output_node_counts(self):
-        result = np.zeros(MAX_TYPE)
-        for i in range(self.N):
-            result[self.nodes[i].get_type() - 1] += 1
-        return result
+        return self.count
 
     def init_env(self, env):
         # Assign node types, only start with WorKers/MaNagers
         for i in range(self.N):
             if random.random() < START_W:
                 self.nodes.append(Node(i, WK))
+                self.count[WK - 1] += 1
             else:
                 self.nodes.append(Node(i, MN))
+                self.count[MN - 1] += 1
             env.process(self.nodes[-1].evolve(env, self))
 
         # Random ER Graph
@@ -188,7 +190,7 @@ class Counter:
 my_counter = Counter()
 
 env = simpy.Environment()
-mynetwork = Network(NODE_COUNT, EDGE_COUNT)
+mynetwork = Network(EDGE_COUNT, NODE_COUNT)
 mynetwork.init_env(env)
 env.process(my_counter.count(env, mynetwork))
 
